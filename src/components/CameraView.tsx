@@ -1,10 +1,11 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import { useCamera } from "@/hooks/useCamera";
 import { detectProducts, drawProductDetections, type DetectedProduct } from "@/lib/productDetector";
-import { Camera, CameraOff, RotateCcw, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Camera, CameraOff, RotateCcw, Eye, EyeOff, Loader2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const SCAN_INTERVAL_MS = 3000; // Scan every 3 seconds
+const SCAN_INTERVAL_MS = 3000;
+const IDENTIFYING_DURATION_MS = 4000; // Show "Tanımlanıyor" for 4s after detection
 
 const CameraView = () => {
   const { videoRef, status, errorMsg, start, stop, flipCamera } = useCamera();
@@ -15,7 +16,7 @@ const CameraView = () => {
   const [scanState, setScanState] = useState<"idle" | "scanning" | "identifying">("idle");
   const lastScanRef = useRef(0);
   const scanningRef = useRef(false);
-  const identifyTimeoutRef = useRef<NodeJS.Timeout>();
+  const identifyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const { toast } = useToast();
 
   const captureAndDetect = useCallback(async () => {
@@ -23,16 +24,15 @@ const CameraView = () => {
     if (!video || video.readyState < 2 || scanningRef.current) return;
 
     scanningRef.current = true;
-    setIsScanning(true);
+    setScanState("scanning");
 
-    // Create a temp canvas for capture
     const tempCanvas = document.createElement("canvas");
     tempCanvas.width = video.videoWidth;
     tempCanvas.height = video.videoHeight;
     const tempCtx = tempCanvas.getContext("2d");
     if (!tempCtx) {
       scanningRef.current = false;
-      setIsScanning(false);
+      setScanState("idle");
       return;
     }
     tempCtx.drawImage(video, 0, 0);
@@ -40,6 +40,17 @@ const CameraView = () => {
     try {
       const detected = await detectProducts(tempCanvas);
       setProducts(detected);
+
+      if (detected.length > 0) {
+        // Switch to "identifying" state and keep it visible
+        setScanState("identifying");
+        if (identifyTimeoutRef.current) clearTimeout(identifyTimeoutRef.current);
+        identifyTimeoutRef.current = setTimeout(() => {
+          setScanState("idle");
+        }, IDENTIFYING_DURATION_MS);
+      } else {
+        setScanState("idle");
+      }
     } catch (err: any) {
       console.error("Detection failed:", err);
       toast({
@@ -47,9 +58,9 @@ const CameraView = () => {
         description: err.message || "Ürün algılama başarısız oldu",
         variant: "destructive",
       });
+      setScanState("idle");
     } finally {
       scanningRef.current = false;
-      setIsScanning(false);
     }
   }, [videoRef, toast]);
 
@@ -68,7 +79,6 @@ const CameraView = () => {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
 
-    // Draw product detections
     if (showOverlay && products.length > 0) {
       drawProductDetections(ctx, products, canvas.width, canvas.height);
     }
@@ -77,10 +87,11 @@ const CameraView = () => {
     if (showOverlay) {
       const now = Date.now();
       const scanY = ((now % 3000) / 3000) * canvas.height;
-      ctx.strokeStyle = isScanning
+      const isActive = scanState !== "idle";
+      ctx.strokeStyle = isActive
         ? "hsla(50, 80%, 50%, 0.3)"
         : "hsla(145, 80%, 50%, 0.15)";
-      ctx.lineWidth = isScanning ? 2 : 1;
+      ctx.lineWidth = isActive ? 2 : 1;
       ctx.beginPath();
       ctx.moveTo(0, scanY);
       ctx.lineTo(canvas.width, scanY);
@@ -95,17 +106,25 @@ const CameraView = () => {
     }
 
     animRef.current = requestAnimationFrame(processFrame);
-  }, [videoRef, products, showOverlay, isScanning, captureAndDetect]);
+  }, [videoRef, products, showOverlay, scanState, captureAndDetect]);
 
   useEffect(() => {
     if (status === "active") {
-      lastScanRef.current = Date.now() - SCAN_INTERVAL_MS + 500; // First scan after 500ms
+      lastScanRef.current = Date.now() - SCAN_INTERVAL_MS + 500;
       animRef.current = requestAnimationFrame(processFrame);
     }
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
   }, [status, processFrame]);
+
+  useEffect(() => {
+    return () => {
+      if (identifyTimeoutRef.current) clearTimeout(identifyTimeoutRef.current);
+    };
+  }, []);
+
+  const scanLabel = scanState === "scanning" ? "Taranıyor..." : scanState === "identifying" ? "Tanımlanıyor..." : null;
 
   return (
     <div className="flex flex-col items-center w-full max-w-4xl mx-auto gap-4 p-4">
@@ -129,7 +148,7 @@ const CameraView = () => {
         </div>
         {status === "active" && (
           <div className="flex items-center gap-2">
-            {isScanning && (
+            {scanState !== "idle" && (
               <Loader2 className="w-3 h-3 text-accent animate-spin" />
             )}
             <span className="font-mono text-xs text-muted-foreground">
@@ -206,12 +225,20 @@ const CameraView = () => {
           </>
         )}
 
-        {/* Scanning indicator */}
-        {status === "active" && isScanning && (
-          <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded bg-accent/20 backdrop-blur-sm">
-            <Loader2 className="w-3 h-3 text-accent animate-spin" />
-            <span className="font-mono text-[10px] text-accent">
-              Taranıyor...
+        {/* Scanning/Identifying indicator */}
+        {status === "active" && scanLabel && (
+          <div className={`absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded backdrop-blur-sm ${
+            scanState === "identifying" ? "bg-primary/20" : "bg-accent/20"
+          }`}>
+            {scanState === "scanning" ? (
+              <Loader2 className="w-3 h-3 text-accent animate-spin" />
+            ) : (
+              <Search className="w-3 h-3 text-primary animate-pulse" />
+            )}
+            <span className={`font-mono text-[10px] ${
+              scanState === "identifying" ? "text-primary" : "text-accent"
+            }`}>
+              {scanLabel}
             </span>
           </div>
         )}
@@ -257,10 +284,10 @@ const CameraView = () => {
             </button>
             <button
               onClick={captureAndDetect}
-              disabled={isScanning}
+              disabled={scanState === "scanning"}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-accent-foreground font-mono text-sm hover:opacity-90 transition disabled:opacity-50"
             >
-              {isScanning ? (
+              {scanState === "scanning" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Eye className="w-4 h-4" />
@@ -277,7 +304,9 @@ const CameraView = () => {
           {products.map((product, i) => (
             <div
               key={i}
-              className="flex flex-col gap-1 px-3 py-2 rounded-md bg-secondary hud-border"
+              className={`flex flex-col gap-1 px-3 py-2 rounded-md bg-secondary hud-border transition-all duration-500 ${
+                scanState === "identifying" ? "ring-1 ring-primary/50 shadow-[0_0_8px_hsl(var(--primary)/0.3)]" : ""
+              }`}
             >
               <div className="flex items-center gap-2">
                 <div
