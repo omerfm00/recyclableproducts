@@ -30,7 +30,6 @@ const PRODUCT_BORDER_COLORS = [
 export async function detectProducts(
   canvas: HTMLCanvasElement
 ): Promise<DetectedProduct[]> {
-  // Convert canvas to base64 JPEG (smaller than PNG)
   const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
 
   const { data, error } = await supabase.functions.invoke("detect-products", {
@@ -44,7 +43,7 @@ export async function detectProducts(
 
   if (!data?.products) return [];
 
-  return data.products.map((p: any, i: number) => ({
+  const products: DetectedProduct[] = data.products.map((p: any, i: number) => ({
     name: p.name,
     category: p.category,
     brand: p.brand || undefined,
@@ -52,6 +51,22 @@ export async function detectProducts(
     position: p.position,
     color: PRODUCT_COLORS[i % PRODUCT_COLORS.length],
   }));
+
+  // Save to detection history
+  if (products.length > 0) {
+    const rows = products.map((p) => ({
+      product_name: p.name,
+      brand: p.brand || null,
+      category: p.category,
+      confidence: p.confidence,
+      position: p.position,
+    }));
+    supabase.from("detection_history").insert(rows).then(({ error }) => {
+      if (error) console.error("Failed to save detection history:", error);
+    });
+  }
+
+  return products;
 }
 
 export function drawProductDetections(
