@@ -21,7 +21,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="w-full border-t border-border px-4 py-2 text-center">
         <p className="font-mono text-xs text-muted-foreground">
-          Heuristic AI · No external model required · Real-time analysis
+          AI Ürün Tanıma · Gerçek zamanlı analiz · Lovable Cloud
         </p>
       </footer>
     </div>
