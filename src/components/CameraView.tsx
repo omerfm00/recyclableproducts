@@ -12,9 +12,10 @@ const CameraView = () => {
   const animRef = useRef<number>(0);
   const [products, setProducts] = useState<DetectedProduct[]>([]);
   const [showOverlay, setShowOverlay] = useState(true);
-  const [isScanning, setIsScanning] = useState(false);
+  const [scanState, setScanState] = useState<"idle" | "scanning" | "identifying">("idle");
   const lastScanRef = useRef(0);
   const scanningRef = useRef(false);
+  const identifyTimeoutRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
 
   const captureAndDetect = useCallback(async () => {
