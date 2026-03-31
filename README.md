@@ -1,8 +1,6 @@
 ♻️ Recyclable Products App
 An interactive web application designed to educate users on waste management and recycling. This platform helps users identify recyclable materials and learn the correct disposal methods to contribute to a greener planet.
 
-🔗 Live Demo: recyclableproducts.lovable.app
-
 🌍 eTwinning Project: "Our Environment Our Future"
 This application was developed as a core digital tool for the "Our Environment Our Future" eTwinning project.
 
@@ -32,35 +30,6 @@ Components: shadcn/ui & Lucide React Icons
 
 Platform: Developed & Deployed via Lovable
 
-🚀 Getting Started
-If you wish to run the project locally for educational purposes or further development:
-
-Clone the repository:
-
-Bash
-git clone https://github.com/your-username/recyclable-products.git
-Navigate to the folder:
-
-Bash
-cd recyclable-products
-Install dependencies:
-
-Bash
-npm install
-Launch the development server:
-
-Bash
-npm run dev
-📂 Project Structure
-Plaintext
-├── src/
-│   ├── components/     # UI elements (Cards, Buttons, Nav)
-│   ├── pages/          # Main application views
-│   ├── hooks/          # Custom React logic
-│   ├── lib/            # Utility functions
-│   └── App.tsx         # Main entry point
-├── public/             # Static assets (images, icons)
-└── tailwind.config.ts  # Theme & styling configuration
 🤝 Contributing
 We welcome contributions from students and educators participating in the eTwinning project!
 
